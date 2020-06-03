@@ -1,14 +1,14 @@
 import palette from 'theme/palette';
 
 export const data = {
-  labels: [],
+  labels: [], // timestamp
   datasets: [
     {
       label: '°C',
       backgroundColor: 'transparent',
       borderColor: palette.primary.main,
       borderJoinStyle: 'miter',
-      data: [],
+      data: [], // data points
       lineTension: 0
     }
   ]
