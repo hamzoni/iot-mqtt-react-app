@@ -6,13 +6,16 @@ import PropTypes from 'prop-types';
 import { Line } from 'react-chartjs-2';
 import { makeStyles } from '@material-ui/styles';
 import { Card, CardContent, CardHeader, Divider } from '@material-ui/core';
-import { connect, useSelector, useDispatch } from 'react-redux';
+import { connect, useDispatch } from 'react-redux';
 
 
 import { data, options } from './chart';
 import Button from '@material-ui/core/Button';
 import TemperatureApiService from '../../../../services/api/temperature.service';
-import { setData } from '../../../../store/actions';
+import { setData, updateData } from '../../../../store/actions';
+import TemperatureMqttService from '../../../../services/mqtt/temperature.service';
+
+import moment from 'moment';
 
 const useStyles = makeStyles(() => ({
   root: {},
@@ -25,11 +28,10 @@ const useStyles = makeStyles(() => ({
   }
 }));
 
-
 let LineChart = props => {
   const dispatch = useDispatch();
 
-  const { labels, values, className, ...rest } = props;
+  const { labels, values, className } = props;
 
   const [dataState, setDataState] = useState(data);
   const [keyState, setKeyState] = useState(new Date().valueOf());
@@ -41,14 +43,23 @@ let LineChart = props => {
     TemperatureApiService.getIndices(result => {
       dispatch(setData(result));
     });
-  });
+
+    TemperatureMqttService.run(value => {
+      dispatch(updateData(value));
+    });
+  }, [dispatch]);
 
   useEffect(() => {
-    console.log(labels, values);
+    setLocalData(labels, values);
   }, [labels, values]);
 
   const setLocalData = (labels, values) => {
     const item = dataState;
+
+    labels = labels.map(label => {
+      return moment(new Date(label)).format('mm:ss');
+    });
+
     item.labels = labels;
     item.datasets[0].data = values;
     setDataState(item);
@@ -57,7 +68,6 @@ let LineChart = props => {
 
   return (
     <Card
-      {...rest}
       className={clsx(classes.root, className)}
     >
       <CardHeader
@@ -91,10 +101,9 @@ LineChart.propTypes = {
   className: PropTypes.string
 };
 
-
 const mapStateToProps = state => ({
-  labels: state.labels,
-  values: state.values
+  labels: state.data.labels,
+  values: state.data.values
 });
 
 LineChart = connect(mapStateToProps)(LineChart);

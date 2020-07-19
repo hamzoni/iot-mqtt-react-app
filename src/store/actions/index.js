@@ -9,7 +9,7 @@ export const setData = value => {
 
 export const updateData = value => {
   return {
-    type: ReduxActions.SET_DATA,
+    type: ReduxActions.UPDATE_DATA,
     value
   };
 };
