@@ -11,7 +11,7 @@ import { connect, useDispatch } from 'react-redux';
 
 import { data, options } from './chart';
 import Button from '@material-ui/core/Button';
-import TemperatureApiService from '../../../../services/api/temperature.service';
+import TemperatureApiService from '../../../../services/api/monitor.service';
 import { setData, updateData } from '../../../../store/actions';
 import TemperatureMqttService from '../../../../services/mqtt/temperature.service';
 

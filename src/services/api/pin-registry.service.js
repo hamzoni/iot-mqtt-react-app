@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import ApiEndpoints from './apis.const.js';
+import ApiEndpoints from '../../consts/api.const.js';
 
 export default class PinRegistryService {
   static listAll() {
