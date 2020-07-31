@@ -4,14 +4,24 @@ import { Provider } from 'react-redux';
 
 import * as serviceWorker from './serviceWorker';
 import App from './App';
-import { createStore } from 'redux';
+import { createStore, applyMiddleware } from 'redux';
 
-import allReducers from './store/reducers';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'react-notifications/lib/notifications.css';
+
+import createSagaMiddleware from 'redux-saga';
+
+import allReducers from './store/reducers/index.reducer.js';
+import rootSaga from './store/sagas/index.saga';
+
+const sagaMiddleware = createSagaMiddleware();
 
 const store = createStore(
   allReducers,
-  window.__REDUX_DEVTOOLS_EXTENSION__ && window.__REDUX_DEVTOOLS_EXTENSION__()
+  applyMiddleware(sagaMiddleware)
 );
+
+sagaMiddleware.run(rootSaga);
 
 ReactDOM.render(
   <Provider store={store}>

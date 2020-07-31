@@ -3,11 +3,11 @@ export class PinDto {
   boardName = '';
   pinType = '';
 
-  static loadForward(dto) {
+  loadForward() {
     return {
-      'pin_name': dto.pinName,
-      'board_name': dto.boardName,
-      'type': dto.pinType
+      'pin_name': this.pinName,
+      'board_name': this.boardName,
+      'type': this.pinType
     };
   }
 

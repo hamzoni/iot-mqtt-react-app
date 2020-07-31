@@ -40,10 +40,10 @@ const AccountProfile = props => {
   const classes = useStyles();
 
   const user = {
-    name: 'Shen Zhi',
-    city: 'Los Angeles',
-    country: 'USA',
-    timezone: 'GTM-7',
+    name: 'Ta Quy',
+    city: 'Hanoi',
+    country: 'VN',
+    timezone: 'UTC+7',
     avatar: '/images/avatars/avatar_11.png'
   };
 

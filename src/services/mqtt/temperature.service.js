@@ -3,25 +3,30 @@ import MqttTopics from './topics.const';
 const mqtt = require('mqtt');
 
 export default class TemperatureMqttService {
-  static run(cb) {
-    const client = mqtt.connect('mqtt://localhost:8883');
 
-    const topic = MqttTopics.TEMPERATURE_TOPIC;
+  client = mqtt.connect('mqtt://localhost:8883');
+  topic = MqttTopics.TEMPERATURE_TOPIC;
 
-    client.on('connect', function() {
-      client.subscribe(topic, function(err) {
-        console.log(err ? err : `Subscribe to topic ${topic} success`);
-      });
+  start(callback) {
+    this.client.subscribe(this.topic, err => {
+      console.log(err ? err : `Subscribe to topic ${this.topic} success`);
     });
 
-    client.on('message', function(_topic, message) {
-      if (_topic !== topic) {
+    this.client.on('message', (_topic, message) => {
+
+      if (_topic !== this.topic) {
         return;
       }
-      cb({
+
+      callback({
         label: new Date().valueOf(),
         value: parseInt(message.toString())
       });
     });
+  }
+
+  stop() {
+    this.client.unsubscribe(this.topic);
+    this.client.close();
   }
 }

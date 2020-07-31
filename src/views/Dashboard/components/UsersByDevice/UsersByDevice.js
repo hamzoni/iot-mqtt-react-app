@@ -72,7 +72,7 @@ const UsersByDevice = props => {
     layout: { padding: 0 },
     tooltips: {
       enabled: true,
-      mode: 'index',
+      mode: 'index.reducers.js.action.js',
       intersect: false,
       borderWidth: 1,
       borderColor: theme.palette.divider,

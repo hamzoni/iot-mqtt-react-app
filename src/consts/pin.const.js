@@ -1,4 +1,4 @@
 export class PinType {
-  ANALOG = 'analog';
-  DIGITAL = 'digital';
+  static ANALOG = 'analog';
+  static DIGITAL = 'digital';
 }

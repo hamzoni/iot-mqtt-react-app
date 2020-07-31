@@ -24,7 +24,7 @@ export const options = {
   cornerRadius: 20,
   tooltips: {
     enabled: true,
-    mode: 'index',
+    mode: 'index.reducers.js.action.js',
     intersect: false,
     borderWidth: 1,
     borderColor: palette.divider,
