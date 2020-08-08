@@ -1,6 +1,6 @@
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import PropTypes from 'prop-types';
 import { Line } from 'react-chartjs-2';
@@ -14,24 +14,30 @@ import Button from '@material-ui/core/Button';
 
 import moment from 'moment';
 import {
+  getMoistureRecords,
   getTemperatureRecords,
-  listAllPins,
+  listAllBoards,
+  listAllPins, onMoistureChange,
   onTemperatureChange,
-  registerPin
+  registerPin,
+  removePin,
+  updatePinValue
 } from '../../../../store/actions/index.action';
-import TemperatureMqttService from '../../../../services/mqtt/temperature.service';
+import MonitorMqttService from '../../../../services/mqtt/monitor.service';
 import FormControl from '@material-ui/core/FormControl';
 import InputLabel from '@material-ui/core/InputLabel';
 import TextField from '@material-ui/core/TextField';
 import { PinDto } from '../../../../dtos/pin.dto';
-import { PinType } from '../../../../consts/pin.const';
+import { PinStatus, PinType } from '../../../../consts/pin.const';
 import Select from '@material-ui/core/Select';
 import MenuItem from '@material-ui/core/MenuItem';
 import Typography from '@material-ui/core/Typography';
-import Box from '@material-ui/core/Box';
 import Slider from '@material-ui/core/Slider';
 import Switch from '@material-ui/core/Switch';
 import Grid from '@material-ui/core/Grid';
+import PinControlMqttService from '../../../../services/mqtt/pin-control.service';
+import MqttTopics from '../../../../services/mqtt/topics.const';
+import { cloneDeep } from 'lodash';
 
 const useStyles = makeStyles(() => ({
   root: {},
@@ -46,39 +52,42 @@ const useStyles = makeStyles(() => ({
 
 let TemperatureMonitorChart = props => {
 
-  const { labels, values, className } = props;
+  const { className } = props;
 
-  const [dataState, setDataState] = useState(data);
-  const [keyState, setKeyState] = useState(new Date().valueOf());
+  const [temperatureValues, setTemperatureValues] = useState(cloneDeep(data));
+  const [temperatureTimestamp, setTemperatureTimestamp] = useState(new Date().valueOf());
 
-  const [boardName, setBoardName] = useState('');
-  const [pinName, setPinName] = useState('');
+  const [moistureValues, setMoistureValues] = useState(cloneDeep(data));
+  const [moistureTimestamp, setMoistureTimestamp] = useState(new Date().valueOf());
+
+  const [boardName, setBoardName] = useState('raspberry.pi.fsb');
+  const [pin, setPin] = useState({});
+  const [pinName, setPinName] = useState(new Date().valueOf() + '');
   const [pinType, setPinType] = useState(PinType.DIGITAL);
+  const [pinValue, setPinValue] = useState({});
+  const [activeBoard, setActiveBoard] = useState(null);
 
-  const service = new TemperatureMqttService();
-
+  const [monitorService, setMonitorService] = useState(null);
+  const pinControlService = new PinControlMqttService();
 
   const classes = useStyles();
 
-  useEffect(() => {
-    setLocalData(labels, values);
-  }, [labels, values]);
-
-  const setLocalData = (labels, values) => {
+  const parseRecords = (records, currentValues, callback) => {
+    let { labels, values } = records;
     if (!labels || !values) {
       return;
     }
-
-    const item = dataState;
+    const timestamp = new Date().valueOf();
+    const newValues = currentValues;
 
     labels = labels.map(label => {
       return moment(new Date(label)).format('mm:ss');
     });
 
-    item.labels = labels;
-    item.datasets[0].data = values;
-    setDataState(item);
-    setKeyState(new Date().valueOf());
+    newValues.labels = labels;
+    newValues.datasets[0].data = values;
+
+    callback(newValues, timestamp);
   };
 
   const onRegisterPin = () => {
@@ -91,21 +100,77 @@ let TemperatureMonitorChart = props => {
   };
 
   useEffect(() => {
-    props.getTemperatureRecords();
-    props.listAllPins();
-
-    service.start((result) => {
-      props.onTemperatureChange(result);
+    parseRecords(props.temperature, temperatureValues, (newValues, timestamp) => {
+      setTemperatureValues(newValues);
+      setTemperatureTimestamp(timestamp);
     });
+  }, [props.temperature]);
+
+  useEffect(() => {
+    parseRecords(props.moisture, moistureValues, (newValues, timestamp) => {
+      setMoistureValues(newValues);
+      setMoistureTimestamp(timestamp);
+    });
+  }, [props.moisture]);
+
+  useEffect(() => {
+
+
+    // get pin records
+    props.listAllPins();
+    props.listAllBoards();
 
     return () => {
-      service.stop();
+      if (monitorService) {
+        monitorService.stop();
+      }
     };
   }, []);
 
   useEffect(() => {
-    console.log(props.pins);
-  }, [props.pins]);
+    if (!activeBoard) {
+      return;
+    }
+
+    // get monitor records
+    props.getTemperatureRecords(activeBoard);
+    props.getMoistureRecords(activeBoard);
+  }, [activeBoard]);
+
+  useEffect(() => {
+    if (!props.boards) {
+      return;
+    }
+
+    // set default board
+    setActiveBoard(props.boards[0]);
+    
+    if (monitorService) {
+      monitorService.stop();
+    }
+    const service = new MonitorMqttService(props.boards);
+    setMonitorService(service);
+  }, [props.boards]);
+
+  useEffect(() => {
+    if (monitorService) {
+      monitorService.subscribe(props.onTemperatureChange, MqttTopics.TEMPERATURE_CHANGE);
+      monitorService.subscribe(props.onMoistureChange, MqttTopics.MOISTURE_CHANGE);
+    }
+  }, [monitorService]);
+
+  useEffect(() => {
+    if (activeBoard) {
+      monitorService.setActiveBoard(activeBoard);
+    }
+  }, [activeBoard]);
+
+  useMemo(() => {
+    props.updatePinValue({
+      pin, value: pinValue.value
+    });
+    pinControlService.setValue(pinValue);
+  }, [pinValue.value]);
 
   return (
     <Card
@@ -113,12 +178,18 @@ let TemperatureMonitorChart = props => {
     >
       <CardHeader
         action={
-          <Button
-            size="small"
-            variant="text"
+          <Select
+            value={activeBoard ? activeBoard : ''}
+            onChange={e => setActiveBoard(e.target.value)}
           >
-            Last 7 days <ArrowDropDownIcon/>
-          </Button>
+            {(props.boards && props.boards.map(board => {
+                return board ?
+                  <MenuItem value={board} key={board}>
+                    {board}
+                  </MenuItem> : '';
+              }
+            ))}
+          </Select>
         }
         title="Temperature Monitor"
       />
@@ -127,15 +198,24 @@ let TemperatureMonitorChart = props => {
       <CardContent>
         <div className={classes.chartContainer}>
           <Line
-            key={keyState}
-            data={dataState}
+            key={temperatureTimestamp + '_temperature'}
+            data={temperatureValues}
+            options={options}
+          />
+        </div>
+
+        <div className={classes.chartContainer}>
+          <Line
+            key={moistureTimestamp + '_moisture'}
+            data={moistureValues}
             options={options}
           />
         </div>
 
         <form noValidate autoComplete="off" className={'d-flex align-items-center mt-3'}>
-          <TextField label="Board name" className={'mr-3'} onChange={e => setBoardName(e.target.value)}/>
-          <TextField label="Pin name" className={'mr-3'} onChange={e => setPinName(e.target.value)}/>
+          <TextField label="Board name" className={'mr-3'} value={boardName}
+                     onChange={e => setBoardName(e.target.value)}/>
+          <TextField label="Pin name" className={'mr-3'} value={pinName} onChange={e => setPinName(e.target.value)}/>
 
           <FormControl className={'mr-3'}>
             <InputLabel id="pinType">Pin type</InputLabel>
@@ -158,47 +238,59 @@ let TemperatureMonitorChart = props => {
             Register Pin
           </Button>
         </form>
-
       </CardContent>
-
 
       <div className={'row p-3'}>
         {props.pins && Object.keys(props.pins).map((boardName, i) =>
-          <>
-            <div className={'col-md-12 mb-3'}>
-              <Typography variant="h5" component="h2">
-                {boardName}
-              </Typography>
+          <div className={'col-md-12 mb-3'} key={boardName}>
+            <Typography variant="h5" component="h2">
+              {boardName}
+            </Typography>
 
-              <Grid container spacing={3}>
-                {props.pins[boardName].map((pin, j) =>
-                  <Grid item xs={6} sm={3}>
-                    <Paper className={'p-2 mt-2'}>
-                      <Typography variant="body2" component="p">
-                        {pin.pin_name}
-                      </Typography>
+            <Grid container spacing={3}>
+              {props.pins[boardName].map((pin, j) =>
+                <Grid item xs={6} sm={3} key={pin.pin_name + '-' + j}>
+                  <Paper className={'p-2 mt-2'}>
+                    <Typography variant="body2" component="p">
+                      {pin.pin_name}
+                    </Typography>
 
-                      <Slider
-                        defaultValue={30}
-                        valueLabelDisplay="auto"
-                        step={10}
-                        marks
-                        min={0}
-                        max={100}
-                      />
+                    {
+                      pin.type === PinType.DIGITAL ?
+                        <Switch
+                          checked={pin.digital_value === PinStatus.ON}
+                          onChange={(e, value) => props.updatePinValue({
+                            pin, value: value ? PinStatus.ON : PinStatus.OFF
+                          })}
+                          inputProps={{ 'aria-label': 'secondary checkbox' }}
+                        /> :
+                        <Slider
+                          defaultValue={pin.analog_value}
+                          valueLabelDisplay="auto"
+                          onChange={(e, value) => {
+                            setPin(pin);
+                            setPinValue({ board_name: boardName, pin_name: pin.pin_name, value });
+                          }}
+                          step={1}
+                          marks
+                          min={0}
+                          max={100}
+                        />
+                    }
 
-                      <Switch
-                        checked={true}
-                        // onChange={}
-                        // name="checkedA"
-                        inputProps={{ 'aria-label': 'secondary checkbox' }}
-                      />
-                    </Paper>
-                  </Grid>
-                )}
-              </Grid>
-            </div>
-          </>
+                    <Button variant="contained" color="secondary" onClick={e => {
+                      props.removePin({
+                        boardName,
+                        pinName: pin.pin_name
+                      });
+                    }}>
+                      Delete
+                    </Button>
+                  </Paper>
+                </Grid>
+              )}
+            </Grid>
+          </div>
         )}
       </div>
 
@@ -214,16 +306,21 @@ TemperatureMonitorChart.propTypes = {
 const mapDispatchToProps = {
   getTemperatureRecords,
   onTemperatureChange,
+  getMoistureRecords,
+  onMoistureChange,
+  listAllBoards,
   listAllPins,
-  registerPin
+  registerPin,
+  removePin,
+  updatePinValue
 };
 
 const mapStateToProps = state => {
-  const { labels, values } = state.monitor.temperature;
-  const pins = state.signal.pins;
-
+  const { pins, boards } = state.signal;
   return {
-    labels, values, pins
+    pins, boards,
+    temperature: state.monitor.temperature,
+    moisture: state.monitor.moisture
   };
 };
 

@@ -3,24 +3,30 @@ import axios from 'axios';
 import ApiEndpoints from '../../consts/api.const.js';
 
 export default class PinControlService {
-  turnOn(boardName, pinName) {
+  static turnOn(boardName, pinName) {
     const url = `${ApiEndpoints.SIGNAL_CONTROL}/${boardName}/${pinName}/on`;
-    axios.post(url).then(response => {
-      console.log(response.data);
+    return new Promise(resolve => {
+      axios.post(url).then(response => {
+        resolve(response.data);
+      });
     });
   }
 
-  turnOff(boardName, pinName) {
+  static turnOff(boardName, pinName) {
     const url = `${ApiEndpoints.SIGNAL_CONTROL}/${boardName}/${pinName}/off`;
-    axios.post(url).then(response => {
-      console.log(response.data);
+    return new Promise(resolve => {
+      axios.post(url).then(response => {
+        resolve(response.data);
+      });
     });
   }
 
-  setValue(boardName, pinName, value) {
+  static setValue(boardName, pinName, value) {
     const url = `${ApiEndpoints.SIGNAL_CONTROL}/${boardName}/${pinName}?value=${value}`;
-    axios.post(url).then(response => {
-      console.log(response.data);
+    return new Promise(resolve => {
+      axios.post(url).then(response => {
+        resolve(response.data);
+      });
     });
   }
 }

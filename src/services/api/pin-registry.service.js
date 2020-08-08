@@ -4,6 +4,16 @@ import { NotificationManager } from 'react-notifications';
 import ApiEndpoints from '../../consts/api.const.js';
 
 export default class PinRegistryService {
+  
+  static listAllBoards() {
+    const url = `${ApiEndpoints.SIGNAL_REGISTRY}/boards`;
+    return new Promise(resolve => {
+      axios.get(url).then(response => {
+        resolve(response.data);
+      });
+    });
+  }
+
   static listAll() {
     const url = ApiEndpoints.SIGNAL_REGISTRY;
     return new Promise(resolve => {

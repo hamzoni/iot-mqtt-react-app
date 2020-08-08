@@ -1,81 +1,111 @@
 import { PinControlActions, PinRegistryActions } from '../actions.const';
 import { cloneDeep } from 'lodash';
+import PinRegistryService from '../../services/api/pin-registry.service';
+import { BoardConfig, PinStatus } from '../../consts/pin.const';
 
 
 class InitialState {
-  pins: [];
+  pins: {};
+  boards: [];
 }
+
+const changePinStatus = (state, action, status) => {
+  const _pins = state.pins;
+  const _boardName = action.value.board_name;
+
+  for (let i = 0; i < _pins[_boardName].length; i++) {
+    if (_pins[_boardName][i].pin_name !== action.value.pin_name) {
+      continue;
+    }
+    _pins[_boardName][i].digital_value = status;
+  }
+
+  return cloneDeep(_pins);
+};
+
+const parseListAllPins = (response) => {
+  const results = {};
+
+  for (const item of response.results) {
+    if (!item.board_name) {
+      item.board_name = 'Unknown';
+    }
+
+    if (!results[item.board_name]) {
+      results[item.board_name] = [];
+    }
+    results[item.board_name].push(item);
+  }
+
+  return results;
+};
+
+const parseListAllBoards = (response) => {
+  return response.results;
+};
 
 const SignalReducer = (state = new InitialState(), action) => {
   switch (action.type) {
-    
-    // case PinRegistryActions.REGISTER:
-    //   console.log(action);
-    //
+    case PinControlActions.TURN_ON: {
+      return {
+        ...state,
+        pins: changePinStatus(state, action, PinStatus.ON)
+      };
+    }
+
+    case PinControlActions.TURN_OFF: {
+      return {
+        ...state,
+        pins: changePinStatus(state, action, PinStatus.OFF)
+      };
+    }
+
+
+    // case PinControlActions.SET_VALUE:
     //   return {
-    //     ...state,
+    //     ...state
     //   };
 
-    case PinRegistryActions.LIST_ALL_SUCCESS:
-      const results = {};
-    
-      for (const item of action.value.results) {
-        if (!item.board_name) {
-          item.board_name = 'Unknown'
-        }
+    case PinRegistryActions.REMOVE: {
+      const pinName = action.value.pinName;
+      let boardName = action.value.boardName;
 
-        if (!results[item.board_name]) {
-          results[item.board_name] = [];
-        }
-        results[item.board_name].push(item);
+      const boardNameApi = BoardConfig.DEFAULT_NAME === boardName ? '' : boardName;
+
+      PinRegistryService.remove(boardNameApi, pinName);
+
+      const pins = state.pins;
+
+      // find pin index in board
+      pins[boardName] = pins[boardName].filter(pin => pin.pin_name !== pinName);
+
+      if (pins[boardName].length === 0) {
+        delete pins[boardName];
       }
 
       return {
         ...state,
-        pins: results,
+        pins: cloneDeep(pins)
       };
+    }
 
-    case PinControlActions.TURN_ON:
-      const { label, value } = action.value;
-
-      const t1 = cloneDeep(state).temperature;
-
-      if (t1.labels.length >= 60) {
-        t1.labels.splice(0, 1);
-        t1.values.splice(0, 1);
-      }
-      t1.labels.push(label);
-      t1.values.push(value);
-
+    case PinRegistryActions.LIST_ALL_SUCCESS: {
       return {
         ...state,
-        temperature: t1
+        pins: parseListAllPins(action.value)
       };
+    }
 
-    case PinControlActions.TURN_OFF:
-      const { labels, values } = action.value;
-
-      const t2 = cloneDeep(state).temperature;
-      t2.labels = labels;
-      t2.values = values;
-
+    case PinRegistryActions.LIST_ALL_BOARDS_SUCCESS: {
       return {
         ...state,
-        temperature: t2
+        boards: parseListAllBoards(action.value)
       };
+    }
 
-    case PinControlActions.SET_VALUE:
-      const t3 = cloneDeep(state).temperature;
-      t3.labels = action.value.labels;
-      t3.values = action.value.values;
-
-      return {
-        ...state,
-        temperature: t3
-      };
-
-    default:
+    default: {
       return state;
+    }
   }
 };
 

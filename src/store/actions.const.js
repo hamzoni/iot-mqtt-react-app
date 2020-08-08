@@ -1,8 +1,12 @@
 export class MonitorActions {
   static ON_TEMPERATURE_CHANGE = 'ON_TEMPERATURE_CHANGE';
+  static ON_MOISTURE_CHANGE =  'ON_MOISTURE_CHANGE';
 
   static SET_TEMPERATURE = 'SET_TEMPERATURE';
   static SET_TEMPERATURE_SUCCESS = 'SET_TEMPERATURE_SUCCESS';
+
+  static SET_MOISTURE = 'SET_MOISTURE';
+  static SET_MOISTURE_SUCCESS = 'SET_MOISTURE_SUCCESS';
 }
 
 export class PinControlActions {
@@ -12,8 +16,10 @@ export class PinControlActions {
 }
 
 export class PinRegistryActions {
-  static REGISTER = 'REGISTER';
   static LIST_ALL = 'LIST_ALL';
   static LIST_ALL_SUCCESS = 'LIST_ALL_SUCCESS';
+  static LIST_ALL_BOARDS = 'LIST_ALL_BOARDS';
+  static LIST_ALL_BOARDS_SUCCESS = 'LIST_ALL_BOARDS_SUCCESS';
+  static REGISTER = 'REGISTER';
   static REMOVE = 'REMOVE';
 }
